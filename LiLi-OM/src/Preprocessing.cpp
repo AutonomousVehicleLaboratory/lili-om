@@ -1,6 +1,7 @@
 #include "utils/common.h"
 #include "utils/timer.h"
 #include "utils/math_tools.h"
+#include "utils/custom_point_type.h"
 
 class Preprocessing {
 private:
@@ -15,7 +16,7 @@ private:
 
     int pre_num = 0;
 
-    pcl::PointCloud<PointXYZINormal> lidar_cloud_in;
+    pcl::PointCloud<pcl::PointXYZILTN> lidar_cloud_in;
     pcl::PointCloud<PointXYZINormal> lidar_cloud_cutted;
     std_msgs::Header cloud_header;
 
@@ -59,7 +60,7 @@ public:
             frame_id = "lili_om";
         }
 
-        sub_Lidar_cloud = nh.subscribe<sensor_msgs::PointCloud2>("/livox_ros_points", 100, &Preprocessing::cloudHandler, this);
+        sub_Lidar_cloud = nh.subscribe<sensor_msgs::PointCloud2>("/livox/lidar", 100, &Preprocessing::cloudHandler, this);
         sub_imu = nh.subscribe<sensor_msgs::Imu>("/livox/imu", 200, &Preprocessing::imuHandler, this);
 
         pub_surf = nh.advertise<sensor_msgs::PointCloud2>("/surf_features", 100);
@@ -103,8 +104,8 @@ public:
 
     PointXYZINormal undistortion(PointXYZINormal pt, const Eigen::Quaterniond quat) {
         double dt = 0.1;
-        int line = int(pt.intensity);
-        double dt_i = pt.intensity - line;
+        int line = int(pt.curvature);
+        double dt_i = pt.curvature - line;
 
         double ratio_i = dt_i / dt;
         if(ratio_i >= 1.0) {
@@ -173,8 +174,8 @@ public:
     void imuHandler(const sensor_msgs::ImuConstPtr& imu_in) {
         imu_buf.push_back(imu_in);
 
-        if(imu_buf.size() > 600)
-            imu_buf[imu_buf.size() - 601] = nullptr;
+        // if(imu_buf.size() > 600)
+        //     imu_buf[imu_buf.size() - 601] = nullptr;
 
         if (current_time_imu < 0)
             current_time_imu = imu_in->header.stamp.toSec();
@@ -240,16 +241,55 @@ public:
         pcl::PointCloud<PointXYZINormal>::Ptr surf_features(new pcl::PointCloud<PointXYZINormal>());
         pcl::PointCloud<PointXYZINormal>::Ptr edge_features(new pcl::PointCloud<PointXYZINormal>());
 
+        
+        // ROS_INFO("\n point");
+        // ROS_INFO("( x: %f, y: %f, z: %f)\n", 
+        //     lidar_cloud_in.points[0].x, 
+        //     lidar_cloud_in.points[0].y, 
+        //     lidar_cloud_in.points[0].z);
+        // ROS_INFO("( data: %f, %f, %f, %f)", 
+        //     lidar_cloud_in.points[0].data[0], 
+        //     lidar_cloud_in.points[0].data[1], 
+        //     lidar_cloud_in.points[0].data[2], 
+        //     lidar_cloud_in.points[0].data[3]);
+
+        // ROS_INFO("( normal: %f, %f, %f, %f)", 
+        //     lidar_cloud_in.points[0].data_n[0], 
+        //     lidar_cloud_in.points[0].data_n[1], 
+        //     lidar_cloud_in.points[0].data_n[2], 
+        //     lidar_cloud_in.points[0].data_n[3]);
+        
+        // ROS_INFO("( intensity: %f, line: %u, offset_time: %u)", 
+        //     lidar_cloud_in.points[0].intensity, 
+        //     lidar_cloud_in.points[0].line,
+        //     lidar_cloud_in.points[0].offset_time);
+        // ROS_INFO("( data_c: %f, %f, %f, %f)", 
+        //     lidar_cloud_in.points[0].data_c[0], 
+        //     lidar_cloud_in.points[0].data_c[1], 
+        //     lidar_cloud_in.points[0].data_c[2], 
+        //     lidar_cloud_in.points[0].data_c[3]);
+
+        auto time_end = lidar_cloud_in.points.back().offset_time;
         for (int i = 0; i < cloud_size; i++) {
             point.x = lidar_cloud_in.points[i].x;
             point.y = lidar_cloud_in.points[i].y;
             point.z = lidar_cloud_in.points[i].z;
             point.intensity = lidar_cloud_in.points[i].intensity;
-            point.curvature = lidar_cloud_in.points[i].curvature;
+            float s = float(lidar_cloud_in.points[i].offset_time / (float)time_end);
+            point.curvature = lidar_cloud_in.points[i].line + s*0.1;;
+            // ROS_INFO("( intensity: %f, line: %u, offset_time: %u)", 
+            // lidar_cloud_in.points[i].intensity, 
+            // lidar_cloud_in.points[i].line,
+            // lidar_cloud_in.points[i].offset_time);
+            // ROS_INFO("( data_c: %f, %f, %f, %f)", 
+            // lidar_cloud_in.points[i].data_c[0], 
+            // lidar_cloud_in.points[i].data_c[1], 
+            // lidar_cloud_in.points[i].data_c[2], 
+            // lidar_cloud_in.points[i].data_c[3]);
 
             int scan_id = 0;
             if (N_SCANS == 6)
-                scan_id = (int)point.intensity;
+                scan_id = (int)point.curvature;
             if(scan_id < 0)
                 continue;
 
@@ -257,12 +297,12 @@ public:
             lidar_cloud_cutted.push_back(point_undis);
 
             double dep = point_undis.x*point_undis.x + point_undis.y*point_undis.y + point_undis.z*point_undis.z;
-            if(dep > 40000.0 || dep < 4.0 || point_undis.curvature < 0.05 || point_undis.curvature > 25.45)
+            if(dep > 40000.0 || dep < 4.0 || point_undis.intensity < 0.5 || point_undis.intensity > 254.5)
                 continue;
-            int col = int(round((point_undis.intensity - scan_id) / t_interval));
+            int col = int(round((point_undis.curvature - scan_id) / t_interval));
             if (col >= H_SCANS || col < 0)
                 continue;
-            if (mat[scan_id][col].curvature != 0)
+            if (mat[scan_id][col].intensity != 0)
                 continue;
             mat[scan_id][col] = point_undis;
         }
@@ -273,7 +313,7 @@ public:
             int num = 36;
             for(int j = 0; j < 6; j++) {
                 for(int k = 0; k < N_SCANS; k++) {
-                    if(mat[k][i+j].curvature <= 0) {
+                    if(mat[k][i+j].intensity <= 0) {
                         num--;
                         continue;
                     }
@@ -304,7 +344,7 @@ public:
                 double max_s1 = 0;
                 int idx = i;
                 for(int j = 0; j < 6; j++) {
-                    if(mat[k][i+j].curvature <= 0) {
+                    if(mat[k][i+j].intensity <= 0) {
                         continue;
                     }
                     double g1 = getDepth(mat[k][i+j-4]) + getDepth(mat[k][i+j-3]) +
@@ -353,14 +393,14 @@ public:
             if(eigen_solver_edge.eigenvalues()[2] > edge_thres * eigen_solver_edge.eigenvalues()[1] && idsx_edge.size() > 3) {
                 Eigen::Vector3d unitDirection = eigen_solver_edge.eigenvectors().col(2);
                 for(int j = 0; j < idsx_edge.size(); j++) {
-                    if(mat[idsx_edge[j]][idsy_edge[j]].curvature <= 0 && mat[idsx_edge[j]][idsy_edge[j]].intensity <= 0)
+                    if(mat[idsx_edge[j]][idsy_edge[j]].intensity <= 0 && mat[idsx_edge[j]][idsy_edge[j]].curvature <= 0)
                         continue;
                     mat[idsx_edge[j]][idsy_edge[j]].normal_x = unitDirection.x();
                     mat[idsx_edge[j]][idsy_edge[j]].normal_y = unitDirection.y();
                     mat[idsx_edge[j]][idsy_edge[j]].normal_z = unitDirection.z();
 
                     edge_features->points.push_back(mat[idsx_edge[j]][idsy_edge[j]]);
-                    mat[idsx_edge[j]][idsy_edge[j]].curvature *= -1;
+                    mat[idsx_edge[j]][idsy_edge[j]].intensity *= -1;
                 }
             }
 
@@ -368,7 +408,7 @@ public:
                 Eigen::Vector3d unitDirection = eigen_solver.eigenvectors().col(0);
                 for(int j = 0; j < 6; j++) {
                     for(int k = 0; k < N_SCANS; k++) {
-                        if(mat[k][i+j].curvature <= 0) {
+                        if(mat[k][i+j].intensity <= 0) {
                             continue;
                         }
                         mat[k][i+j].normal_x = unitDirection.x();
@@ -376,7 +416,7 @@ public:
                         mat[k][i+j].normal_z = unitDirection.z();
 
                         surf_features->points.push_back(mat[k][i+j]);
-                        mat[k][i+j].curvature *= -1;
+                        mat[k][i+j].intensity *= -1;
                     }
                 }
             }

@@ -561,8 +561,8 @@ public:
 
         imu_buf.push_back(ImuIn);
 
-        if(imu_buf.size() > 600)
-            imu_buf[imu_buf.size() - 601] = nullptr;
+        // if(imu_buf.size() > 600)
+        //     imu_buf[imu_buf.size() - 601] = nullptr;
 
         if (cur_time_imu < 0)
             cur_time_imu = time_last_imu;

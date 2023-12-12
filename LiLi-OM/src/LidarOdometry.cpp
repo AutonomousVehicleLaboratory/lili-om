@@ -178,8 +178,8 @@ public:
     void undistortion(const pcl::PointCloud<PointType>::Ptr &pcloud, const Eigen::Vector3d trans, const Eigen::Quaterniond quat) {
         double dt = 0.1;
         for (auto &pt : pcloud->points) {
-            int line = int(pt.intensity);
-            double dt_i = pt.intensity - line;
+            int line = int(pt.curvature);
+            double dt_i = pt.curvature - line;
             double ratio_i = dt_i / dt;
 
             if(ratio_i > 1)

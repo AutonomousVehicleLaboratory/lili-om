@@ -627,8 +627,8 @@ public:
 
         imu_buf.push_back(ImuIn);
 
-        if(imu_buf.size() > 600)
-            imu_buf[imu_buf.size() - 601] = nullptr;
+        // if(imu_buf.size() > 600)
+        //     imu_buf[imu_buf.size() - 601] = nullptr;
 
         if (cur_time_imu < 0)
             cur_time_imu = time_last_imu;
@@ -1485,12 +1485,15 @@ public:
 
     void downSampleCloud()
     {
+        // ROS_INFO("filter surf local map");
         ds_filter_surf_map.setInputCloud(surf_local_map);
         ds_filter_surf_map.filter(*surf_local_map_ds);
 
+        // ROS_INFO("filter edge local map");
         ds_filter_edge_map.setInputCloud(edge_local_map);
         ds_filter_edge_map.filter(*edge_local_map_ds);
 
+        // ROS_INFO("filter full cloud");
         pcl::PointCloud<PointType>::Ptr fullDS(new pcl::PointCloud<PointType>());
         ds_filter_surf_map.setInputCloud(full_cloud);
         ds_filter_surf_map.filter(*fullDS);
@@ -1499,6 +1502,7 @@ public:
         pcl::copyPointCloud(*full_cloud, *full);
         full_clouds.push_back(full);
 
+        // ROS_INFO("filter surf last");
         surf_last_ds->clear();
         ds_filter_surf.setInputCloud(surf_last);
         ds_filter_surf.filter(*surf_last_ds);
@@ -1506,6 +1510,7 @@ public:
         pcl::copyPointCloud(*surf_last_ds, *surf);
         surf_lasts_ds.push_back(surf);
 
+        // ROS_INFO("filter edge last");
         edge_last_ds->clear();
         ds_filter_edge.setInputCloud(edge_last);
         ds_filter_edge.filter(*edge_last_ds);
@@ -1704,6 +1709,7 @@ public:
         double timeodom_cur = odom_cur->header.stamp.toSec();
         if(imu_buf[i]->header.stamp.toSec() > timeodom_cur)
             ROS_WARN("Timestamp not synchronized, please check your hardware!");
+        // ROS_INFO("Before process IMU");
         while(imu_buf[i]->header.stamp.toSec() < timeodom_cur) {
 
             double t = imu_buf[i]->header.stamp.toSec();
@@ -1806,13 +1812,16 @@ public:
         pose_info_cloud_frame->push_back(latestPoseInfo);
 
         //optimize sliding window
+        // ROS_INFO("to optimize slide window");
         num_kf_sliding++;
         if(num_kf_sliding >= 1 || !first_opt) {
             optimizeSlidingWindowWithLandMark();
             num_kf_sliding = 0;
         }
 
+        // ROS_INFO("building local pose graph.");
         buildLocalPoseGraph();
+        // ROS_INFO("pose graph built.");
 
         if (!loop_closure_on)
             return;
@@ -1870,6 +1879,7 @@ public:
                 glocal_init_estimate.insert(i, poseTo);
             }
         }
+        // ROS_INFO("Added to graph.");
 
         isam->update(glocal_pose_graph, glocal_init_estimate);
         isam->update();
@@ -2724,8 +2734,10 @@ public:
 
     void run()
     {
+        // ROS_INFO("RUNNING.");
         if (new_surf && new_edge && new_odom && new_each_odom && new_full_cloud)
         {
+            // ROS_INFO("Enter mapping.");
             new_edge = false;
             new_surf = false;
             new_odom = false;
@@ -2734,17 +2746,22 @@ public:
 
             std::lock_guard<std::mutex> lock(mutual_exclusion);
 
-            //cout<<"map_pub_cnt: "<<++map_pub_cnt<<endl;
+            cout<<"map_pub_cnt: "<<++map_pub_cnt<<endl;
 
             Timer t_map("BackendFusion");
             buildLocalMapWithLandMark();
+            // ROS_INFO("built local map");
             downSampleCloud();
+            ROS_INFO("downsampled");
             saveKeyFramesAndFactors();
+            ROS_INFO("keyframe saved");
             publishOdometry();
+            // ROS_INFO("odometry published.");
             clearCloud();
             // t_map.tic_toc();
 
             runtime += t_map.toc();
+            // ROS_INFO("Done single processing.");
             // cout<<"Backend average run time: "<<runtime / each_odom_buf.size()<<endl;
         }
     }

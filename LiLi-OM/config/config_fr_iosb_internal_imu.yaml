@@ -19,8 +19,8 @@ backend_fusion:
   reflect_thres: 15.0
   surf_dist_thres: 0.12
   kd_max_radius: 1.0
-  surf_ds: 0.4
-  edge_ds: 0.2
+  surf_ds: 0.5 # 0.4
+  edge_ds: 0.4 # 0.2
   loop_closure_on: true
   global_lc_time_thres: 25.0
   local_lc_time_thres: 25.0
