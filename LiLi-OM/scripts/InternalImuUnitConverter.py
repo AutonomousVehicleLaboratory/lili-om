@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import tf
 import rospy
@@ -11,7 +11,7 @@ class imu_rescaller:
     self.orientation_avg_num = 3
 
     pub_topic_name = "/imu/data"
-    sub_topic_name = "/livox/imu"
+    sub_topic_name = "/livox/imu_1HDDGC500101061"
 
     self.pub = rospy.Publisher(pub_topic_name, Imu, queue_size = 200)
     rospy.Subscriber(sub_topic_name, Imu, self.callback)

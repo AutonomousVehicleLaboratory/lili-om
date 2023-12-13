@@ -60,8 +60,8 @@ public:
             frame_id = "lili_om";
         }
 
-        sub_Lidar_cloud = nh.subscribe<sensor_msgs::PointCloud2>("/livox/lidar", 100, &Preprocessing::cloudHandler, this);
-        sub_imu = nh.subscribe<sensor_msgs::Imu>("/livox/imu", 200, &Preprocessing::imuHandler, this);
+        sub_Lidar_cloud = nh.subscribe<sensor_msgs::PointCloud2>("/livox/lidar_1HDDGC500101061", 100, &Preprocessing::cloudHandler, this);
+        sub_imu = nh.subscribe<sensor_msgs::Imu>("/livox/imu_1HDDGC500101061", 200, &Preprocessing::imuHandler, this);
 
         pub_surf = nh.advertise<sensor_msgs::PointCloud2>("/surf_features", 100);
         pub_edge = nh.advertise<sensor_msgs::PointCloud2>("/edge_features", 100);
